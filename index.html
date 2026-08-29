@@ -5,19 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Generador de Certificados DJI</title>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{
     box-sizing:border-box;
 }
 
+html{
+    overflow-x:hidden;
+}
+
 body{
     margin:0;
+    min-width:0;
     font-family:Arial,Helvetica,sans-serif;
     background:#f2f5f9;
     color:#0b2d55;
 }
 
 .container{
+    width:100%;
     max-width:1100px;
     margin:40px auto;
     padding:20px;
@@ -51,6 +58,7 @@ h1{
 .field{
     display:flex;
     flex-direction:column;
+    min-width:0;
 }
 
 .field.full{
@@ -65,6 +73,8 @@ label{
 
 input{
     width:100%;
+    min-width:0;
+    max-width:100%;
     padding:13px 15px;
     border:1px solid #ccd5e0;
     border-radius:10px;
@@ -76,6 +86,10 @@ input{
 input:focus{
     border-color:#2678c9;
     box-shadow:0 0 0 3px rgba(38,120,201,.12);
+}
+
+input[type="date"]{
+    min-inline-size:0;
 }
 
 .help{
@@ -100,6 +114,11 @@ button{
     font-weight:bold;
     cursor:pointer;
     transition:.2s;
+}
+
+button:disabled{
+    cursor:not-allowed;
+    opacity:.55;
 }
 
 .btn-primary{
@@ -152,9 +171,9 @@ button{
     margin-bottom:15px;
 }
 
-#pdfPreview{
+#certificatePreview{
+    display:block;
     width:100%;
-    height:500px;
     border:1px solid #d7dee7;
     border-radius:12px;
     background:#f8fafc;
@@ -181,12 +200,67 @@ button{
     }
 
     .container{
-        margin:10px auto;
-        padding:10px;
+        margin:0 auto;
+        padding:12px 8px;
     }
 
     .card{
-        padding:20px;
+        padding:20px 14px;
+        border-radius:14px;
+    }
+
+    h1{
+        font-size:26px;
+        line-height:1.2;
+    }
+
+    .subtitle{
+        margin-bottom:24px;
+        line-height:1.45;
+    }
+
+    .form-grid{
+        gap:16px;
+    }
+
+    input{
+        padding:12px;
+    }
+
+    .buttons{
+        align-items:stretch;
+        margin-top:24px;
+    }
+
+    .buttons button{
+        width:100%;
+    }
+
+    #certificatePreview{
+        border-radius:8px;
+    }
+
+    .preview{
+        margin-top:28px;
+        padding-top:20px;
+    }
+}
+
+@media(max-width:360px){
+    .container{
+        padding:8px 4px;
+    }
+
+    .card{
+        padding:16px 10px;
+    }
+
+    h1{
+        font-size:23px;
+    }
+
+    input{
+        padding:11px 10px;
     }
 }
 </style>
@@ -233,13 +307,14 @@ Las firmas no se solicitan porque serán realizadas físicamente.
 El sistema solamente agrega los datos escritos en los campos correspondientes.
 </div>
 <div class="buttons">
-<button class="btn-primary" onclick="generarPDF()">📄 Generar y descargar PDF</button>
+<button class="btn-primary" onclick="generarVistaPrevia()">👁️ Generar vista previa</button>
+<button id="downloadButton" class="btn-secondary" onclick="descargarPDF()" disabled>⬇️ Descargar PDF</button>
 <button class="btn-secondary" onclick="limpiarFormulario()">🗑️ Limpiar</button>
 </div>
 <div id="status" class="status"></div>
 <div class="preview">
-<h2>Certificado original</h2>
-<iframe id="pdfPreview" src="Certificado.pdf"></iframe>
+<h2>Vista previa del certificado</h2>
+<img id="certificatePreview" alt="La vista previa del certificado aparecerá aquí.">
 </div>
 </div>
 </div>
@@ -254,6 +329,10 @@ const CONFIG = {
     codigo:{ x:255, y:75, size:11 },
     representante:{ x:595, y:106, size:13 }
 };
+
+let certificadoGenerado = null;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 function textoCentrado(page, texto, centroX, y, font, size, color){
     const ancho = font.widthOfTextAtSize(texto, size);
@@ -322,71 +401,116 @@ function formatearFecha(fecha){
     return `${dia}/${mes}/${año}`;
 }
 
-async function generarPDF(){
+async function crearCertificado(){
+    const respuesta = await fetch("Certificado.pdf");
+
+    if(!respuesta.ok){
+        throw new Error("No se encontró el archivo Certificado.pdf");
+    }
+
+    const pdfBytes = await respuesta.arrayBuffer();
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pagina = pdfDoc.getPages()[0];
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const color = rgb(0.02, 0.15, 0.35);
+    const nombre = document.getElementById("nombre").value.trim();
+    const fecha = formatearFecha(document.getElementById("fecha").value);
+    const lugar = document.getElementById("lugar").value.trim();
+    const instructor = document.getElementById("instructor").value.trim();
+    const codigo = document.getElementById("codigo").value.trim();
+    const representante = document.getElementById("representante").value.trim();
+
+    textoCentrado(pagina, nombre, CONFIG.nombre.x, CONFIG.nombre.y, font, CONFIG.nombre.size, color);
+
+    pagina.drawText(fecha, {
+        x:CONFIG.fecha.x,
+        y:CONFIG.fecha.y,
+        size:CONFIG.fecha.size,
+        font:font,
+        color:color
+    });
+
+    pagina.drawText(lugar, {
+        x:CONFIG.lugar.x,
+        y:CONFIG.lugar.y,
+        size:CONFIG.lugar.size,
+        font:font,
+        color:color
+    });
+
+    textoCentrado(pagina, instructor, CONFIG.instructor.x, CONFIG.instructor.y, font, CONFIG.instructor.size, color);
+    textoCentrado(pagina, "Código: " + codigo, CONFIG.codigo.x, CONFIG.codigo.y, font, CONFIG.codigo.size, color);
+    textoCentrado(pagina, representante, CONFIG.representante.x, CONFIG.representante.y, font, CONFIG.representante.size, color);
+
+    return new Blob([await pdfDoc.save()], { type:"application/pdf" });
+}
+
+async function generarVistaPrevia(){
     try{
         if(!validar()){
             return;
         }
 
         mostrarEstado("Generando certificado...", "success");
-
-        const respuesta = await fetch("Certificado.pdf");
-
-        if(!respuesta.ok){
-            throw new Error("No se encontró el archivo Certificado.pdf");
-        }
-
-        const pdfBytes = await respuesta.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(pdfBytes);
-        const pagina = pdfDoc.getPages()[0];
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        const color = rgb(0.02, 0.15, 0.35);
-        const nombre = document.getElementById("nombre").value.trim();
-        const fecha = formatearFecha(document.getElementById("fecha").value);
-        const lugar = document.getElementById("lugar").value.trim();
-        const instructor = document.getElementById("instructor").value.trim();
-        const codigo = document.getElementById("codigo").value.trim();
-        const representante = document.getElementById("representante").value.trim();
-
-        textoCentrado(pagina, nombre, CONFIG.nombre.x, CONFIG.nombre.y, font, CONFIG.nombre.size, color);
-
-        pagina.drawText(fecha, {
-            x:CONFIG.fecha.x,
-            y:CONFIG.fecha.y,
-            size:CONFIG.fecha.size,
-            font:font,
-            color:color
-        });
-
-        pagina.drawText(lugar, {
-            x:CONFIG.lugar.x,
-            y:CONFIG.lugar.y,
-            size:CONFIG.lugar.size,
-            font:font,
-            color:color
-        });
-
-        textoCentrado(pagina, instructor, CONFIG.instructor.x, CONFIG.instructor.y, font, CONFIG.instructor.size, color);
-        textoCentrado(pagina, "Código: " + codigo, CONFIG.codigo.x, CONFIG.codigo.y, font, CONFIG.codigo.size, color);
-        textoCentrado(pagina, representante, CONFIG.representante.x, CONFIG.representante.y, font, CONFIG.representante.size, color);
-
-        const pdfFinal = await pdfDoc.save();
-        const blob = new Blob([pdfFinal], { type:"application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const enlace = document.createElement("a");
-
-        enlace.href = url;
-        enlace.download = "Certificado_DJI_Academy.pdf";
-        document.body.appendChild(enlace);
-        enlace.click();
-        document.body.removeChild(enlace);
-        URL.revokeObjectURL(url);
-
-        mostrarEstado("✅ Certificado generado correctamente.", "success");
+        certificadoGenerado = await crearCertificado();
+        await mostrarVistaPreviaComoImagen(certificadoGenerado);
+        document.getElementById("downloadButton").disabled = false;
+        mostrarEstado("✅ Revisa la vista previa en imagen y descarga el certificado cuando esté listo.", "success");
     }catch(error){
         console.error(error);
         mostrarEstado("❌ Error: " + error.message, "error");
     }
+}
+
+async function mostrarVistaPreviaComoImagen(certificado){
+    const pdf = await pdfjsLib.getDocument({ data:await certificado.arrayBuffer() }).promise;
+    const pagina = await pdf.getPage(1);
+    const viewport = pagina.getViewport({ scale:2 });
+    const canvas = document.createElement("canvas");
+    const contexto = canvas.getContext("2d");
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await pagina.render({ canvasContext:contexto, viewport:viewport }).promise;
+
+    const vistaPrevia = document.getElementById("certificatePreview");
+    vistaPrevia.src = canvas.toDataURL("image/png");
+    vistaPrevia.alt = "Vista previa del certificado generado";
+}
+
+function descargarPDF(){
+    if(!certificadoGenerado){
+        mostrarEstado("Primero genera la vista previa del certificado.", "error");
+        return;
+    }
+
+    const url = URL.createObjectURL(certificadoGenerado);
+    const enlace = document.createElement("a");
+
+    enlace.href = url;
+    enlace.download = "Certificado_DJI_Academy.pdf";
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 0);
+
+    mostrarEstado("✅ Descarga iniciada correctamente.", "success");
+}
+
+function invalidarVistaPrevia(){
+    if(!certificadoGenerado){
+        return;
+    }
+
+    certificadoGenerado = null;
+    document.getElementById("downloadButton").disabled = true;
+
+    const vistaPrevia = document.getElementById("certificatePreview");
+    vistaPrevia.removeAttribute("src");
+    vistaPrevia.alt = "La vista previa debe generarse nuevamente.";
+    mostrarEstado("Los datos cambiaron. Genera una nueva vista previa antes de descargar.", "success");
 }
 
 function limpiarFormulario(){
@@ -396,6 +520,12 @@ function limpiarFormulario(){
     document.getElementById("instructor").value = "";
     document.getElementById("codigo").value = "";
     document.getElementById("representante").value = "";
+    certificadoGenerado = null;
+    document.getElementById("downloadButton").disabled = true;
+
+    const vistaPrevia = document.getElementById("certificatePreview");
+    vistaPrevia.removeAttribute("src");
+    vistaPrevia.alt = "La vista previa del certificado aparecerá aquí.";
     ocultarEstado();
 }
 
@@ -412,6 +542,10 @@ function ocultarEstado(){
     status.textContent = "";
     status.className = "status";
 }
+
+document.querySelectorAll(".form-grid input").forEach((input) => {
+    input.addEventListener("input", invalidarVistaPrevia);
+});
 </script>
 </body>
 </html>
