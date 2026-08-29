@@ -513,6 +513,44 @@ function invalidarVistaPrevia(){
     mostrarEstado("Los datos cambiaron. Genera una nueva vista previa antes de descargar.", "success");
 }
 
+function descargarPDF(){
+    if(!certificadoGenerado){
+        mostrarEstado("Primero genera la vista previa del certificado.", "error");
+        return;
+    }
+
+    const url = URL.createObjectURL(certificadoGenerado);
+    const enlace = document.createElement("a");
+
+    enlace.href = url;
+    enlace.download = "Certificado_DJI_Academy.pdf";
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 0);
+
+    mostrarEstado("✅ Descarga iniciada correctamente.", "success");
+}
+
+function invalidarVistaPrevia(){
+    if(!certificadoGenerado){
+        return;
+    }
+
+    certificadoGenerado = null;
+    document.getElementById("downloadButton").disabled = true;
+
+    if(urlVistaPrevia){
+        URL.revokeObjectURL(urlVistaPrevia);
+        urlVistaPrevia = null;
+    }
+
+    document.getElementById("pdfPreview").src = "about:blank";
+    mostrarEstado("Los datos cambiaron. Genera una nueva vista previa antes de descargar.", "success");
+}
+
 function limpiarFormulario(){
     document.getElementById("nombre").value = "";
     document.getElementById("fecha").value = "";
