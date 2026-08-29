@@ -221,6 +221,11 @@ Diligencia los datos del certificado y genera el PDF listo para imprimir y firma
 <input type="text" id="codigo" placeholder="Ejemplo: DJI-001" autocomplete="off">
 <div class="help">El código aparecerá debajo del nombre del instructor.</div>
 </div>
+<div class="field">
+<label for="representante">Representante POLARISDRONE</label>
+<input type="text" id="representante" placeholder="Nombre completo del representante" autocomplete="off">
+<div class="help">El nombre aparecerá debajo de la firma de POLARISDRONE.</div>
+</div>
 </div>
 <div class="note">
 <strong>Importante:</strong>
@@ -246,7 +251,8 @@ const CONFIG = {
     fecha:{ x:275, y:213, size:14 },
     lugar:{ x:585, y:213, size:14 },
     instructor:{ x:255, y:105, size:15 },
-    codigo:{ x:255, y:75, size:11 }
+    codigo:{ x:255, y:75, size:11 },
+    representante:{ x:585, y:105, size:13 }
 };
 
 function textoCentrado(page, texto, centroX, y, font, size, color){
@@ -267,6 +273,7 @@ function validar(){
     const lugar = document.getElementById("lugar").value.trim();
     const instructor = document.getElementById("instructor").value.trim();
     const codigo = document.getElementById("codigo").value.trim();
+    const representante = document.getElementById("representante").value.trim();
 
     if(!nombre){
         mostrarEstado("Por favor escribe el nombre completo del participante.", "error");
@@ -293,6 +300,11 @@ function validar(){
         return false;
     }
 
+    if(!representante){
+    mostrarEstado("Por favor escribe el nombre del representante de POLARISDRONE.", "error");
+    return false;
+    }
+    
     return true;
 }
 
@@ -355,6 +367,7 @@ async function generarPDF(){
 
         textoCentrado(pagina, instructor, CONFIG.instructor.x, CONFIG.instructor.y, font, CONFIG.instructor.size, color);
         textoCentrado(pagina, "Código: " + codigo, CONFIG.codigo.x, CONFIG.codigo.y, font, CONFIG.codigo.size, color);
+        textoCentrado(pagina, representante, CONFIG.representante.x, CONFIG.representante.y, font, CONFIG.representante.size, color);
 
         const pdfFinal = await pdfDoc.save();
         const blob = new Blob([pdfFinal], { type:"application/pdf" });
@@ -381,6 +394,7 @@ function limpiarFormulario(){
     document.getElementById("lugar").value = "";
     document.getElementById("instructor").value = "";
     document.getElementById("codigo").value = "";
+    document.getElementById("representante").value = "";
     ocultarEstado();
 }
 
