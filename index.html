@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Certificados DJI</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f2f5f9;
+    color:#0b2d55;
+}
+
+.container{
+    max-width:1100px;
+    margin:40px auto;
+    padding:20px;
+}
+
+.card{
+    background:white;
+    border-radius:18px;
+    padding:30px;
+    box-shadow:0 10px 35px rgba(0,0,0,.10);
+}
+
+h1{
+    text-align:center;
+    margin:0 0 8px;
+    color:#0b315f;
+}
+
+.subtitle{
+    text-align:center;
+    color:#64748b;
+    margin-bottom:30px;
+}
+
+.form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.field{
+    display:flex;
+    flex-direction:column;
+}
+
+.field.full{
+    grid-column:1 / -1;
+}
+
+label{
+    font-weight:bold;
+    margin-bottom:7px;
+    color:#163b68;
+}
+
+input{
+    width:100%;
+    padding:13px 15px;
+    border:1px solid #ccd5e0;
+    border-radius:10px;
+    font-size:16px;
+    outline:none;
+    transition:.2s;
+}
+
+input:focus{
+    border-color:#2678c9;
+    box-shadow:0 0 0 3px rgba(38,120,201,.12);
+}
+
+.help{
+    margin-top:6px;
+    font-size:12px;
+    color:#718096;
+}
+
+.buttons{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    margin-top:30px;
+    flex-wrap:wrap;
+}
+
+button{
+    border:0;
+    border-radius:10px;
+    padding:14px 24px;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.btn-primary{
+    background:#0b4f8a;
+    color:white;
+}
+
+.btn-primary:hover{
+    background:#083d6c;
+    transform:translateY(-1px);
+}
+
+.btn-secondary{
+    background:#e7edf4;
+    color:#163b68;
+}
+
+.btn-secondary:hover{
+    background:#dbe4ee;
+}
+
+.status{
+    margin-top:20px;
+    padding:13px;
+    border-radius:10px;
+    display:none;
+    text-align:center;
+}
+
+.status.success{
+    display:block;
+    background:#e8f7ee;
+    color:#176b3a;
+}
+
+.status.error{
+    display:block;
+    background:#fdecec;
+    color:#a12525;
+}
+
+.preview{
+    margin-top:35px;
+    border-top:1px solid #e5e7eb;
+    padding-top:25px;
+}
+
+.preview h2{
+    text-align:center;
+    margin-bottom:15px;
+}
+
+#pdfPreview{
+    width:100%;
+    height:500px;
+    border:1px solid #d7dee7;
+    border-radius:12px;
+    background:#f8fafc;
+}
+
+.note{
+    margin-top:20px;
+    background:#f0f6fc;
+    border-left:4px solid #2678c9;
+    padding:14px;
+    border-radius:8px;
+    color:#284766;
+    font-size:14px;
+    line-height:1.5;
+}
+
+@media(max-width:700px){
+    .form-grid{
+        grid-template-columns:1fr;
+    }
+
+    .field.full{
+        grid-column:auto;
+    }
+
+    .container{
+        margin:10px auto;
+        padding:10px;
+    }
+
+    .card{
+        padding:20px;
+    }
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="card">
+<h1>Certificado DJI ACADEMY</h1>
+<div class="subtitle">
+Diligencia los datos del certificado y genera el PDF listo para imprimir y firmar.
+</div>
+<div class="form-grid">
+<div class="field full">
+<label for="nombre">Nombre completo del participante</label>
+<input type="text" id="nombre" placeholder="Ejemplo: Juan Carlos Pérez" autocomplete="off">
+</div>
+<div class="field">
+<label for="fecha">Fecha</label>
+<input type="date" id="fecha">
+</div>
+<div class="field">
+<label for="lugar">Lugar</label>
+<input type="text" id="lugar" placeholder="Ejemplo: Palmira, Valle del Cauca" autocomplete="off">
+</div>
+<div class="field">
+<label for="instructor">Instructor - DJI ACADEMY</label>
+<input type="text" id="instructor" placeholder="Nombre completo del instructor" autocomplete="off">
+<div class="help">Aquí se escribe el nombre del instructor.</div>
+</div>
+<div class="field">
+<label for="codigo">Código del instructor</label>
+<input type="text" id="codigo" placeholder="Ejemplo: DJI-001" autocomplete="off">
+<div class="help">El código aparecerá debajo del nombre del instructor.</div>
+</div>
+</div>
+<div class="note">
+<strong>Importante:</strong>
+Las firmas no se solicitan porque serán realizadas físicamente.
+El sistema solamente agrega los datos escritos en los campos correspondientes.
+</div>
+<div class="buttons">
+<button class="btn-primary" onclick="generarPDF()">📄 Generar y descargar PDF</button>
+<button class="btn-secondary" onclick="limpiarFormulario()">🗑️ Limpiar</button>
+</div>
+<div id="status" class="status"></div>
+<div class="preview">
+<h2>Certificado original</h2>
+<iframe id="pdfPreview" src="Certificado.pdf"></iframe>
+</div>
+</div>
+</div>
+<script>
+const { PDFDocument, StandardFonts, rgb } = PDFLib;
+
+const CONFIG = {
+    nombre:{ x:421, y:304, size:20 },
+    fecha:{ x:275, y:207, size:14 },
+    lugar:{ x:585, y:207, size:14 },
+    instructor:{ x:255, y:70, size:13 },
+    codigo:{ x:255, y:52, size:11 }
+};
+
+function textoCentrado(page, texto, centroX, y, font, size, color){
+    const ancho = font.widthOfTextAtSize(texto, size);
+
+    page.drawText(texto, {
+        x:centroX - (ancho / 2),
+        y:y,
+        size:size,
+        font:font,
+        color:color
+    });
+}
+
+function validar(){
+    const nombre = document.getElementById("nombre").value.trim();
+    const fecha = document.getElementById("fecha").value.trim();
+    const lugar = document.getElementById("lugar").value.trim();
+    const instructor = document.getElementById("instructor").value.trim();
+    const codigo = document.getElementById("codigo").value.trim();
+
+    if(!nombre){
+        mostrarEstado("Por favor escribe el nombre completo del participante.", "error");
+        return false;
+    }
+
+    if(!fecha){
+        mostrarEstado("Por favor selecciona la fecha.", "error");
+        return false;
+    }
+
+    if(!lugar){
+        mostrarEstado("Por favor escribe el lugar.", "error");
+        return false;
+    }
+
+    if(!instructor){
+        mostrarEstado("Por favor escribe el nombre del instructor.", "error");
+        return false;
+    }
+
+    if(!codigo){
+        mostrarEstado("Por favor escribe el código del instructor.", "error");
+        return false;
+    }
+
+    return true;
+}
+
+function formatearFecha(fecha){
+    const partes = fecha.split("-");
+
+    if(partes.length !== 3){
+        return fecha;
+    }
+
+    const año = partes[0];
+    const mes = partes[1];
+    const dia = partes[2];
+
+    return `${dia}/${mes}/${año}`;
+}
+
+async function generarPDF(){
+    try{
+        if(!validar()){
+            return;
+        }
+
+        mostrarEstado("Generando certificado...", "success");
+
+        const respuesta = await fetch("Certificado.pdf");
+
+        if(!respuesta.ok){
+            throw new Error("No se encontró el archivo Certificado.pdf");
+        }
+
+        const pdfBytes = await respuesta.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+        const pagina = pdfDoc.getPages()[0];
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const color = rgb(0.02, 0.15, 0.35);
+        const nombre = document.getElementById("nombre").value.trim();
+        const fecha = formatearFecha(document.getElementById("fecha").value);
+        const lugar = document.getElementById("lugar").value.trim();
+        const instructor = document.getElementById("instructor").value.trim();
+        const codigo = document.getElementById("codigo").value.trim();
+
+        textoCentrado(pagina, nombre, CONFIG.nombre.x, CONFIG.nombre.y, font, CONFIG.nombre.size, color);
+
+        pagina.drawText(fecha, {
+            x:CONFIG.fecha.x,
+            y:CONFIG.fecha.y,
+            size:CONFIG.fecha.size,
+            font:font,
+            color:color
+        });
+
+        pagina.drawText(lugar, {
+            x:CONFIG.lugar.x,
+            y:CONFIG.lugar.y,
+            size:CONFIG.lugar.size,
+            font:font,
+            color:color
+        });
+
+        textoCentrado(pagina, instructor, CONFIG.instructor.x, CONFIG.instructor.y, font, CONFIG.instructor.size, color);
+        textoCentrado(pagina, "Código: " + codigo, CONFIG.codigo.x, CONFIG.codigo.y, font, CONFIG.codigo.size, color);
+
+        const pdfFinal = await pdfDoc.save();
+        const blob = new Blob([pdfFinal], { type:"application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement("a");
+
+        enlace.href = url;
+        enlace.download = "Certificado_DJI_Academy.pdf";
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        URL.revokeObjectURL(url);
+
+        mostrarEstado("✅ Certificado generado correctamente.", "success");
+    }catch(error){
+        console.error(error);
+        mostrarEstado("❌ Error: " + error.message, "error");
+    }
+}
+
+function limpiarFormulario(){
+    document.getElementById("nombre").value = "";
+    document.getElementById("fecha").value = "";
+    document.getElementById("lugar").value = "";
+    document.getElementById("instructor").value = "";
+    document.getElementById("codigo").value = "";
+    ocultarEstado();
+}
+
+function mostrarEstado(mensaje, tipo){
+    const status = document.getElementById("status");
+
+    status.textContent = mensaje;
+    status.className = "status " + tipo;
+}
+
+function ocultarEstado(){
+    const status = document.getElementById("status");
+
+    status.textContent = "";
+    status.className = "status";
+}
+</script>
+</body>
+</html>
