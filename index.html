@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Generador de Certificados DJI</title>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{
     box-sizing:border-box;
@@ -170,10 +171,9 @@ button:disabled{
     margin-bottom:15px;
 }
 
-#pdfPreview{
+#certificatePreview{
     display:block;
     width:100%;
-    height:500px;
     border:1px solid #d7dee7;
     border-radius:12px;
     background:#f8fafc;
@@ -236,8 +236,7 @@ button:disabled{
         width:100%;
     }
 
-    #pdfPreview{
-        height:clamp(320px, 65vh, 500px);
+    #certificatePreview{
         border-radius:8px;
     }
 
@@ -315,7 +314,7 @@ El sistema solamente agrega los datos escritos en los campos correspondientes.
 <div id="status" class="status"></div>
 <div class="preview">
 <h2>Vista previa del certificado</h2>
-<iframe id="pdfPreview" src="about:blank" title="Vista previa del certificado generado"></iframe>
+<img id="certificatePreview" alt="La vista previa del certificado aparecerá aquí.">
 </div>
 </div>
 </div>
@@ -332,7 +331,8 @@ const CONFIG = {
 };
 
 let certificadoGenerado = null;
-let urlVistaPrevia = null;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 function textoCentrado(page, texto, centroX, y, font, size, color){
     const ancho = font.widthOfTextAtSize(texto, size);
@@ -453,19 +453,64 @@ async function generarVistaPrevia(){
 
         mostrarEstado("Generando certificado...", "success");
         certificadoGenerado = await crearCertificado();
-
-        if(urlVistaPrevia){
-            URL.revokeObjectURL(urlVistaPrevia);
-        }
-
-        urlVistaPrevia = URL.createObjectURL(certificadoGenerado);
-        document.getElementById("pdfPreview").src = urlVistaPrevia;
+        await mostrarVistaPreviaComoImagen(certificadoGenerado);
         document.getElementById("downloadButton").disabled = false;
-        mostrarEstado("✅ Revisa la vista previa y descarga el certificado cuando esté listo.", "success");
+        mostrarEstado("✅ Revisa la vista previa en imagen y descarga el certificado cuando esté listo.", "success");
     }catch(error){
         console.error(error);
         mostrarEstado("❌ Error: " + error.message, "error");
     }
+}
+
+async function mostrarVistaPreviaComoImagen(certificado){
+    const pdf = await pdfjsLib.getDocument({ data:await certificado.arrayBuffer() }).promise;
+    const pagina = await pdf.getPage(1);
+    const viewport = pagina.getViewport({ scale:2 });
+    const canvas = document.createElement("canvas");
+    const contexto = canvas.getContext("2d");
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await pagina.render({ canvasContext:contexto, viewport:viewport }).promise;
+
+    const vistaPrevia = document.getElementById("certificatePreview");
+    vistaPrevia.src = canvas.toDataURL("image/png");
+    vistaPrevia.alt = "Vista previa del certificado generado";
+}
+
+function descargarPDF(){
+    if(!certificadoGenerado){
+        mostrarEstado("Primero genera la vista previa del certificado.", "error");
+        return;
+    }
+
+    const url = URL.createObjectURL(certificadoGenerado);
+    const enlace = document.createElement("a");
+
+    enlace.href = url;
+    enlace.download = "Certificado_DJI_Academy.pdf";
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 0);
+
+    mostrarEstado("✅ Descarga iniciada correctamente.", "success");
+}
+
+function invalidarVistaPrevia(){
+    if(!certificadoGenerado){
+        return;
+    }
+
+    certificadoGenerado = null;
+    document.getElementById("downloadButton").disabled = true;
+
+    const vistaPrevia = document.getElementById("certificatePreview");
+    vistaPrevia.removeAttribute("src");
+    vistaPrevia.alt = "La vista previa debe generarse nuevamente.";
+    mostrarEstado("Los datos cambiaron. Genera una nueva vista previa antes de descargar.", "success");
 }
 
 function descargarPDF(){
@@ -516,12 +561,9 @@ function limpiarFormulario(){
     certificadoGenerado = null;
     document.getElementById("downloadButton").disabled = true;
 
-    if(urlVistaPrevia){
-        URL.revokeObjectURL(urlVistaPrevia);
-        urlVistaPrevia = null;
-    }
-
-    document.getElementById("pdfPreview").src = "about:blank";
+    const vistaPrevia = document.getElementById("certificatePreview");
+    vistaPrevia.removeAttribute("src");
+    vistaPrevia.alt = "La vista previa del certificado aparecerá aquí.";
     ocultarEstado();
 }
 
